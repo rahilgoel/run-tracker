@@ -11,26 +11,33 @@ import React, { useEffect, useMemo, useState } from "react";
  * - Week starts on Monday (ISO week). Adjust in startOfWeek() if you prefer Sunday.
  */
 
+type RunEntry = {
+  id: string;
+  date: string; // YYYY-MM-DD
+  miles: number;
+  note: string;
+};
+
 const LS_KEY = "run_tracker_v1";
 
-function clampMiles(value) {
+function clampMiles(value: unknown): number {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.round(n * 100) / 100);
 }
 
-function formatMiles(n) {
+function formatMiles(n: number | string): string {
   const v = Number(n) || 0;
   return v.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-function toISODate(d) {
+function toISODate(d: Date): string {
   // yyyy-mm-dd in local time
-  const pad = (x) => String(x).padStart(2, "0");
+  const pad = (x: number) => String(x).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-function parseISODate(s) {
+function parseISODate(s: string): Date | null {
   // Interpret as local date (avoid timezone shifting)
   const [y, m, d] = (s || "").split("-").map((x) => parseInt(x, 10));
   if (!y || !m || !d) return null;
@@ -38,66 +45,66 @@ function parseISODate(s) {
   return Number.isNaN(dt.getTime()) ? null : dt;
 }
 
-function startOfDay(d) {
+function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
-function startOfWeek(d) {
+function startOfWeek(d: Date): Date {
   // ISO week: Monday start
   const day = d.getDay(); // 0 Sun .. 6 Sat
-  const diff = (day === 0 ? -6 : 1 - day); // move back to Monday
+  const diff = day === 0 ? -6 : 1 - day; // move back to Monday
   const monday = new Date(d);
   monday.setDate(d.getDate() + diff);
   return startOfDay(monday);
 }
 
-function startOfMonth(d) {
+function startOfMonth(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1);
 }
 
-function startOfYear(d) {
+function startOfYear(d: Date): Date {
   return new Date(d.getFullYear(), 0, 1);
 }
 
-function endExclusiveNextDay(d) {
+function endExclusiveNextDay(d: Date): Date {
   const x = startOfDay(d);
   x.setDate(x.getDate() + 1);
   return x;
 }
 
-function withinRange(dateObj, startInclusive, endExclusive) {
+function withinRange(dateObj: Date, startInclusive: Date, endExclusive: Date): boolean {
   const t = dateObj.getTime();
   return t >= startInclusive.getTime() && t < endExclusive.getTime();
 }
 
-function loadRuns() {
+function loadRuns(): RunEntry[] {
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed
+    return (parsed as any[])
       .map((r) => ({
-        id: String(r.id || ""),
-        date: String(r.date || ""),
-        miles: clampMiles(r.miles),
-        note: String(r.note || ""),
+        id: String(r?.id || ""),
+        date: String(r?.date || ""),
+        miles: clampMiles(r?.miles),
+        note: String(r?.note || ""),
       }))
-      .filter((r) => r.id && r.date && r.miles > 0);
+      .filter((r: RunEntry) => r.id && r.date && r.miles > 0);
   } catch {
     return [];
   }
 }
 
-function saveRuns(runs) {
+function saveRuns(runs: RunEntry[]): void {
   localStorage.setItem(LS_KEY, JSON.stringify(runs));
 }
 
-function uid() {
+function uid(): string {
   return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
-function Badge({ label, value }) {
+function Badge({ label, value }: { label: string; value: number }): JSX.Element {
   return (
     <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
       <div className="text-sm text-slate-500">{label}</div>
@@ -109,7 +116,7 @@ function Badge({ label, value }) {
   );
 }
 
-function EmptyState() {
+function EmptyState(): JSX.Element {
   return (
     <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center bg-white">
       <div className="text-lg font-semibold text-slate-900">No runs yet</div>
@@ -120,12 +127,12 @@ function EmptyState() {
   );
 }
 
-export default function RunTrackerApp() {
-  const [runs, setRuns] = useState(() => loadRuns());
-  const [miles, setMiles] = useState("");
-  const [date, setDate] = useState(() => toISODate(new Date()));
-  const [note, setNote] = useState("");
-  const [query, setQuery] = useState("");
+export default function RunTrackerApp(): JSX.Element {
+  const [runs, setRuns] = useState<RunEntry[]>(() => loadRuns());
+  const [miles, setMiles] = useState<string>("");
+  const [date, setDate] = useState<string>(() => toISODate(new Date()));
+  const [note, setNote] = useState<string>("");
+  const [query, setQuery] = useState<string>("");
 
   useEffect(() => {
     saveRuns(runs);
@@ -173,15 +180,15 @@ export default function RunTrackerApp() {
     if (!Number.isFinite(m) || m <= 0) return false;
     const d = parseISODate(date);
     if (!d) return false;
-    // Optional: prevent future dates beyond today
+    // prevent future dates beyond today
     if (d.getTime() >= tomorrow.getTime()) return false;
     return true;
   }, [miles, date, tomorrow]);
 
-  function addRun(e) {
-    e?.preventDefault?.();
+  function addRun(e: React.FormEvent<HTMLFormElement>): void {
+    e.preventDefault();
     if (!canAdd) return;
-    const entry = {
+    const entry: RunEntry = {
       id: uid(),
       date,
       miles: clampMiles(miles),
@@ -192,16 +199,16 @@ export default function RunTrackerApp() {
     setNote("");
   }
 
-  function removeRun(id) {
+  function removeRun(id: string): void {
     setRuns((prev) => prev.filter((r) => r.id !== id));
   }
 
-  function clearAll() {
+  function clearAll(): void {
     if (!confirm("Clear all runs? This cannot be undone.")) return;
     setRuns([]);
   }
 
-  function exportJSON() {
+  function exportJSON(): void {
     const blob = new Blob([JSON.stringify(runs, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -211,24 +218,25 @@ export default function RunTrackerApp() {
     URL.revokeObjectURL(url);
   }
 
-  function importJSON(file) {
+  function importJSON(file: File | null): void {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const parsed = JSON.parse(String(reader.result || ""));
+        const parsed: unknown = JSON.parse(String(reader.result || ""));
         if (!Array.isArray(parsed)) throw new Error("Invalid file");
-        const cleaned = parsed
+        const cleaned: RunEntry[] = (parsed as any[])
           .map((r) => ({
-            id: String(r.id || uid()),
-            date: String(r.date || ""),
-            miles: clampMiles(r.miles),
-            note: String(r.note || ""),
+            id: String(r?.id || uid()),
+            date: String(r?.date || ""),
+            miles: clampMiles(r?.miles),
+            note: String(r?.note || ""),
           }))
           .filter((r) => r.date && r.miles > 0);
+
         setRuns((prev) => {
           // merge by id, prefer imported
-          const byId = new Map(prev.map((r) => [r.id, r]));
+          const byId = new Map<string, RunEntry>(prev.map((r) => [r.id, r]));
           for (const r of cleaned) byId.set(r.id, r);
           return Array.from(byId.values());
         });
@@ -245,9 +253,7 @@ export default function RunTrackerApp() {
         <header className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Run Tracker</h1>
-            <p className="mt-1 text-slate-600">
-              Log miles, then see your weekly, monthly, and yearly totals.
-            </p>
+            <p className="mt-1 text-slate-600">Log miles, then see your weekly, monthly, and yearly totals.</p>
           </div>
           <div className="flex gap-2">
             <button
@@ -263,7 +269,7 @@ export default function RunTrackerApp() {
                 type="file"
                 accept="application/json"
                 className="hidden"
-                onChange={(e) => importJSON(e.target.files?.[0] || null)}
+                onChange={(e) => importJSON(e.target.files?.[0] ?? null)}
               />
             </label>
           </div>
@@ -308,9 +314,7 @@ export default function RunTrackerApp() {
             </div>
 
             <div className="sm:col-span-6 flex items-center justify-between gap-3 pt-2">
-              <div className="text-sm text-slate-500">
-                Week starts Monday. Future dates are blocked.
-              </div>
+              <div className="text-sm text-slate-500">Week starts Monday. Future dates are blocked.</div>
               <button
                 type="submit"
                 disabled={!canAdd}
@@ -359,9 +363,7 @@ export default function RunTrackerApp() {
                           <div className="text-xl font-semibold">{formatMiles(r.miles)} mi</div>
                           <div className="text-sm text-slate-500">{r.date}</div>
                         </div>
-                        {r.note ? (
-                          <div className="mt-1 text-sm text-slate-600">{r.note}</div>
-                        ) : null}
+                        {r.note ? <div className="mt-1 text-sm text-slate-600">{r.note}</div> : null}
                       </div>
                       <button
                         onClick={() => removeRun(r.id)}
